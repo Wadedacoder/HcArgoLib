@@ -17,7 +17,7 @@ old_library='libhclib.a'
 inherited_linker_flags=''
 
 # Libraries that this one depends upon.
-dependency_libs=' -lpthread'
+dependency_libs=' -L/home/dev/argobots-install/lib /home/dev/argobots-install/lib/libabt.la -lrt -ldl -lpthread'
 
 # Names of additional weak libraries provided by this library
 weak_library_names=''

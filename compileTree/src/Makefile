@@ -300,7 +300,8 @@ INSTALL_PROGRAM = ${INSTALL}
 INSTALL_SCRIPT = ${INSTALL}
 INSTALL_STRIP_PROGRAM = $(install_sh) -c -s
 LD = /usr/bin/ld -m elf_x86_64
-LDFLAGS = -lpthread
+# Add -labt and -L to link with ABT in LDFLAGS
+LDFLAGS = -lpthread -labt -L$(LIB_DIR)
 LIBOBJS = 
 LIBS = 
 LIBTOOL = $(SHELL) $(top_builddir)/libtool
@@ -388,8 +389,10 @@ top_builddir = ..
 top_srcdir = ../..
 SUBDIRS = 
 
-# Includes folders
-INCLUDES_DIR = -I$(top_srcdir)/inc -I$(top_srcdir)/src/inc
+# Includes folders and abt lib
+ARGOBOTS_INSTALL_DIR = /home/dev/argobots-install
+INCLUDES_DIR = -I$(top_srcdir)/inc -I$(top_srcdir)/src/inc -I${ARGOBOTS_INSTALL_DIR}/include
+LIB_DIR = ${ARGOBOTS_INSTALL_DIR}/lib
 
 # build the hclib library
 lib_LTLIBRARIES = libhclib.la
@@ -401,7 +404,7 @@ AM_CXXFLAGS =
 libhclib_la_SOURCES = hclib-runtime.c hclib-deque.c hclib_cpp.cpp
 
 # build hclib
-libhclib_la_CXXFLAGS = $(CXXFLAGS) $(INCLUDES_DIR) $(AM_CXXFLAGS)
+libhclib_la_CXXFLAGS = $(CXXFLAGS) $(INCLUDES_DIR) $(AM_CXXFLAGS) $(LDFLAGS)
 libhclib_la_CFLAGS = $(CFLAGS) $(INCLUDES_DIR) $(AM_CXXFLAGS)
 MAINTAINERCLEANFILES = Makefile.in
 all: all-recursive

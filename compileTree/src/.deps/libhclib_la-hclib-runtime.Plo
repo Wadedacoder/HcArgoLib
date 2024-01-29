@@ -57,7 +57,11 @@ libhclib_la-hclib-runtime.lo: ../../src/hclib-runtime.c \
  /usr/include/string.h \
  /usr/include/x86_64-linux-gnu/bits/string_fortified.h \
  /usr/include/assert.h ../../src/inc/hclib-deque.h \
- ../../src/inc/hclib-atomics.h
+ ../../src/inc/hclib-atomics.h /home/dev/argobots-install/include/abt.h \
+ /usr/lib/gcc/x86_64-linux-gnu/11/include/stdint.h /usr/include/stdint.h \
+ /usr/include/x86_64-linux-gnu/bits/wchar.h \
+ /usr/include/x86_64-linux-gnu/bits/stdint-intn.h \
+ /usr/include/x86_64-linux-gnu/bits/stdint-uintn.h
 /usr/include/stdc-predef.h:
 ../../src/inc/hclib-internal.h:
 /usr/include/stdio.h:
@@ -124,3 +128,9 @@ libhclib_la-hclib-runtime.lo: ../../src/hclib-runtime.c \
 /usr/include/assert.h:
 ../../src/inc/hclib-deque.h:
 ../../src/inc/hclib-atomics.h:
+/home/dev/argobots-install/include/abt.h:
+/usr/lib/gcc/x86_64-linux-gnu/11/include/stdint.h:
+/usr/include/stdint.h:
+/usr/include/x86_64-linux-gnu/bits/wchar.h:
+/usr/include/x86_64-linux-gnu/bits/stdint-intn.h:
+/usr/include/x86_64-linux-gnu/bits/stdint-uintn.h:

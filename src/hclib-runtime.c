@@ -15,6 +15,7 @@
  */
 
 #include "hclib-internal.h"
+#include <abt.h>
 
 pthread_key_t selfKey;
 pthread_once_t selfKeyInitialized = PTHREAD_ONCE_INIT;
