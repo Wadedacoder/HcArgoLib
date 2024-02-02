@@ -211,9 +211,11 @@ void sched_run(ABT_sched sched)
             ABT_self_schedule(thread, ABT_POOL_NULL);
         } else if (n_pools > 1) {
             /* Steal a thread from the target pool */
+            
             if(n_pools > 2) target = rand_r(&seed) % (n_pools - 1) + 1;
             ABT_pool_pop_thread(pools[target], &thread);
             if (thread != ABT_THREAD_NULL) {
+                total_steals++;
                 ABT_self_schedule(thread, pools[target]);
             }
         }
@@ -243,7 +245,7 @@ void create_scheds(int num, ABT_pool *pools, ABT_sched *scheds)
     ABT_sched_config config;
     ABT_pool *my_pools;
 
-    ABT_sched_config_var cv_freq = { .index = 0,
+    ABT_sched_config_var cv_freq = { .idx = 0,
                                      .type = ABT_SCHED_CONFIG_INT };
 
     ABT_sched_def sched_def = { .type = ABT_SCHED_TYPE_ULT,

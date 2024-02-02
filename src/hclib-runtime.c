@@ -192,7 +192,7 @@ void hclib_async(generic_frame_ptr fct_ptr, void * arg) {
     //     ._fp = fct_ptr,
     //     .args = arg,
     // };
-
+    total_asyncs++;
     int worker_id;
     ABT_xstream_self_rank(&worker_id);
     // printf("WORKER ID: %d\n", worker_id);
@@ -326,7 +326,7 @@ void hclib_finalize() {
     double duration = (mysecond() - benchmark_start_time_stats) * 1000;
     printf("============================ Tabulate Statistics ============================\n");
     printf("time.kernel\ttotalAsync\ttotalSteals\n");
-    printf("%.3f\t\n",user_specified_timer);
+    printf("%.3f\t%d\t%d\n",user_specified_timer, total_asyncs, total_steals);
     printf("=============================================================================\n");
     printf("===== Total Time in %.f msec =====\n", duration);
     printf("===== Test PASSED in 0.0 msec =====\n");
