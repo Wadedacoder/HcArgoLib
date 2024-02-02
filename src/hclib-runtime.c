@@ -17,6 +17,7 @@
 #include <stdio.h>
 
 #include <abt.h>
+#include "abt_pools_sched.h"
 #include "hclib-internal.h"
 
 pthread_key_t selfKey;
@@ -105,20 +106,8 @@ void setup() {
     ABT_init(0, NULL);
 
     /* Create pools. */
-    for (i = 0; i < nb_workers; i++) {
-        ABT_pool_create_basic(ABT_POOL_RANDWS, ABT_POOL_ACCESS_MPMC, ABT_TRUE, &pools[i]);
-    }
-
-    /* Create schedulers. */
-    for (i = 0; i < nb_workers; i++) {
-        ABT_pool *tmp = (ABT_pool *)malloc(sizeof(ABT_pool) * nb_workers);
-        for (j = 0; j < nb_workers; j++) {
-            tmp[j] = pools[(i + j) % nb_workers];
-        }
-        ABT_sched_create_basic(ABT_SCHED_RANDWS, nb_workers, tmp,
-                               ABT_SCHED_CONFIG_NULL, &scheds[i]);
-        free(tmp);
-    }
+    create_pools(nb_workers, pools);
+    create_scheds(nb_workers, pools, scheds);
 
     /* Set up a primary execution stream. */
     ABT_xstream_self(&xstreams[0]);
@@ -197,27 +186,6 @@ void hclib_init(int argc, char **argv) {
     benchmark_start_time_stats = mysecond();
 }
 
-void execute_task(task_t * task) {
-    finish_t* current_finish = task->current_finish;
-    int wid = hclib_current_worker();
-    hclib_worker_state* ws = &workers[wid];
-    ws->current_finish = current_finish;
-    task->_fp((void *)task->args);
-    check_out_finish(current_finish);
-    free(task);
-}
-
-void spawn(task_t * task) {
-    // get current worker
-    int wid = hclib_current_worker();
-    hclib_worker_state* ws = &workers[wid];
-    check_in_finish(ws->current_finish);
-    task->current_finish = ws->current_finish;
-    // push on worker deq
-    dequePush(ws->deque, task);
-    ws->total_push++;
-}
-
 void hclib_async(generic_frame_ptr fct_ptr, void * arg) {
     // task_t * task = malloc(sizeof(*task));
     // *task = (task_t){
@@ -229,15 +197,15 @@ void hclib_async(generic_frame_ptr fct_ptr, void * arg) {
     ABT_xstream_self_rank(&worker_id);
     // printf("WORKER ID: %d\n", worker_id);
     worker_id = get_worker_index_from_id(worker_id);
-    
     ABT_thread new_ult;
     ABT_thread_create(pools[worker_id], fct_ptr, arg, ABT_THREAD_ATTR_NULL, &new_ult);
 
-    ULT_obj* new_async = (ULT_obj*)malloc(sizeof(ULT_obj));
-    new_async -> thread = &new_ult;
-    new_async -> link = finish_objs[worker_id] -> async_list;
-    finish_objs[worker_id] -> async_list = new_async; 
+    // ULT_obj* new_async = (ULT_obj*)malloc(sizeof(ULT_obj));
+    // new_async -> thread = &new_ult;
+    // new_async -> link = finish_objs[worker_id] -> async_list;
+    // finish_objs[worker_id] -> async_list = new_async; 
 
+    ABT_thread_free(&new_ult);
     // Instead of spawn, the task should be sent to the argobots worker
     // spawn(task);
 }
@@ -251,33 +219,12 @@ void hclib_async(generic_frame_ptr fct_ptr, void * arg) {
 //     spawn(task);
 // }
 
-void slave_worker_finishHelper_routine(finish_t* finish) {
-   int wid = hclib_current_worker();
-   while(finish->counter > 0) {
-       task_t* task = dequePop(workers[wid].deque);
-       if (!task) {
-           // try to steal
-           int i = 1;
-           while(finish->counter > 0 && i < nb_workers) {
-               task = dequeSteal(workers[(wid+i)%(nb_workers)].deque);
-	       if(task) {
-		   workers[wid].total_steals++;	   
-	           break;
-	       }
-	       i++;
-	   }
-        }
-        if(task) {
-            execute_task(task);
-        }
-    }
-}
 
 void start_finish() {
 
     int worker_id;
     ABT_xstream_self_rank(&worker_id);
-    // printf("WORKER ID: %d\n", worker_id);
+    printf("WORKER ID: %d\n", worker_id);
     worker_id = get_worker_index_from_id(worker_id);
 
     // struct ULT_obj* thread_list = NULL;
@@ -353,6 +300,8 @@ void hclib_finalize() {
         ABT_xstream_free(&xstreams[i]);
     }
 
+    // end_finish();
+
     /* Finalize Argobots. */
     ABT_finalize();
 
@@ -361,7 +310,6 @@ void hclib_finalize() {
     free(pools);
     free(scheds);
 
-    end_finish();
 
     free(finish_objs);
     free(worker_ids);
@@ -410,31 +358,7 @@ void hclib_kernel(generic_frame_ptr fct_ptr, void * arg) {
 }
 
 void hclib_finish(generic_frame_ptr fct_ptr, void * arg) {
-    start_finish();
+    // start_finish();
     fct_ptr(arg);
-    end_finish();
-}
-
-void* worker_routine(void * args) {
-    int wid = *((int *) args);
-   set_current_worker(wid);
-   while(not_done) {
-       task_t* task = dequePop(workers[wid].deque);
-       if (!task) {
-           // try to steal
-           int i = 1;
-           while (i < nb_workers) {
-               task = dequeSteal(workers[(wid+i)%(nb_workers)].deque);
-	       if(task) {
-                   workers[wid].total_steals++;
-                   break;
-               }
-	       i++;
-	   }
-        }
-        if(task) {
-            execute_task(task);
-        }
-    }
-    return NULL;
+    // end_finish();
 }
