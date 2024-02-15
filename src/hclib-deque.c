@@ -106,3 +106,25 @@ void * dequePop(deque_t * deq) {
     deq->tail = deq->head;
     return rt;
 }
+
+/*
+* check if the deque is empty
+*/
+
+bool dequeEmpty(deque_t * deq) {
+    int head = deq->head;
+    hc_mfence(); /* ensure the read of deq->tail is not reordered before the read of deq->head */
+    int tail = deq->tail;
+    return (tail - head) <= 0;
+}
+
+
+/*
+* return the size of the deque
+*/
+int dequeSize(deque_t * deq) {
+    int head = deq->head;
+    hc_mfence(); /* ensure the read of deq->tail is not reordered before the read of deq->head */
+    int tail = deq->tail;
+    return (tail - head);
+}

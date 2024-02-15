@@ -18,6 +18,8 @@
 /* DEQUE API                                        */
 /****************************************************/
 
+#include <stdbool.h>
+
 typedef struct {
     volatile int head;
     volatile int tail;
@@ -31,4 +33,6 @@ void * dequeSteal(deque_t * deq);
 void dequePush(deque_t* deq, void* entry);
 void * dequePop(deque_t * deq);
 void dequeDestroy(deque_t* deq);
+bool dequeEmpty(deque_t * deq);
+int dequeSize(deque_t * deq);
 

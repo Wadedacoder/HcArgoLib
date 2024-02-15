@@ -19,6 +19,7 @@
 #include <stdlib.h>
 #include <sys/time.h>
 #include <stddef.h>
+#include <stdbool.h>
 
 #include "hclib.h"
 #include "hclib-deque.h"
@@ -36,4 +37,9 @@ typedef struct hclib_worker_state {
     int id; // The id, identify a worker
     long total_push;
     long total_steals;
+
+    // Following fields are for private deque implementation
+    bool status; // 1: excess task
+    task_t* transfer_cell;
+    int request_cell;
 } hclib_worker_state;
