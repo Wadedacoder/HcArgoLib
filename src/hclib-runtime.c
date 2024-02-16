@@ -247,29 +247,26 @@ void acquire(int wid) {
             dbg_printf();
         }
         workers[wid].transfer_cell = NO_RESP;
-        // printf("Worker %d is trying to steal\n", wid);
         // check if all workers are idle
         bool all_idle = true;
         for(int i=0; i<nb_workers; i++) {
             if(i != wid && workers[i].status) {
-                count = 1;
                 all_idle = false;
                 break;
             }
         }
         if(all_idle) {
-            count = 1;
             break;
         }
-
+        // else do random stealing
         int k = rand() % nb_workers;
         if(k == wid) k = (k+1) % nb_workers;
-        if(workers[k].status && hc_cas(&workers[k].request_cell, NO_REQ, wid) && not_done) {
+        if(workers[k].status && hc_cas(&workers[k].request_cell, NO_REQ, wid)) {
             while(workers[wid].transfer_cell == NO_RESP && not_done) {
                 // communicate
                 communicate(wid);
             }
-            if(workers[wid].transfer_cell && not_done) {
+            if(workers[wid].transfer_cell) {
                 if(dbg_mode){ 
                     printf("Worker %d has stolen a task from %d\n", wid, k);
                     dbg_printf();

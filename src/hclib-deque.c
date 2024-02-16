@@ -61,7 +61,7 @@ void * dequeSteal(deque_t * deq) {
     int tail;
     
     head = deq->head;
-    hc_mfence();
+    hc_mfence(); // Can be commented out
     tail = deq->tail;
     if ((tail - head) <= 0) {
         return NULL;
@@ -69,11 +69,14 @@ void * dequeSteal(deque_t * deq) {
 
     void * rt = (void *) deq->data[head % INIT_DEQUE_CAPACITY];
 
-    /* compete with other thieves and possibly the owner (if the size == 1) */
+    /* compete with other thieves and possibly the owner (if the size == 1) | Can be commented for the lines below*/
     if (hc_cas(&deq->head, head, head + 1)) { /* competing */
         return rt;
     }
     return NULL;
+    
+    // deq->head = head+1;
+    // return rt;
 }
 
 /*
