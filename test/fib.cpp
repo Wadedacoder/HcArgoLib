@@ -33,7 +33,7 @@ int fib(int n)
     else {
 	int x, y;
 	hclib::finish([&]() {
-  	    hclib::async([&]( ){x = fib(n-1);});
+  	    hclib::async([&](){x = fib(n-1);});
   	    y = fib(n-2);
 	});
 	return x + y;

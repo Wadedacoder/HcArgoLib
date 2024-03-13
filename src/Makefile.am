@@ -1,15 +1,12 @@
 SUBDIRS =
 
 # Includes folders and abt lib
-ARGOBOTS_INSTALL_DIR = /home/dev/argobots-install
-INCLUDES_DIR = -I$(top_srcdir)/inc -I$(top_srcdir)/src/inc -I${ARGOBOTS_INSTALL_DIR}/include
-LIB_DIR = ${ARGOBOTS_INSTALL_DIR}/lib
+INCLUDES_DIR = -I$(top_srcdir)/inc -I$(top_srcdir)/src/inc 
 
 # cflags: important to define that otherwise we inherit default values too
 CFLAGS = -Wall -g -O3 -std=c11
 CXXFLAGS = -Wall -g -O3 -std=c++11
-# Add -labt and -L to link with ABT in LDFLAGS
-LDFLAGS = -lpthread -labt -L$(LIB_DIR)
+LDFLAGS = -lpthread -L$(LIB_DIR)
 
 # build the hclib library
 lib_LTLIBRARIES = libhclib.la

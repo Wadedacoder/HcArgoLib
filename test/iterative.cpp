@@ -76,13 +76,13 @@ int main (int argc, char ** argv) {
     // for(int i=0; i<SIZE; i++) {
     //   myVal[i] = i/5.0;
     // }
-    myVal[5] = 10000.0;
+    myVal[513] = 10000.0;
     std::cout << "Starting iterative.." << std::endl;
     hclib::kernel([&]() {
         runParallel();
         });
     std::cout << "Done!" << std::endl;
-    for(int i=0; i<10; i++) {
+    for(int i=510; i<520; i++) {
       std::cout << myVal[i] << " ";
     }
     hclib::finalize();
