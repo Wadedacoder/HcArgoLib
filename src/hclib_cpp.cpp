@@ -17,25 +17,27 @@
 #include "hclib.hpp"
 #include <iostream>
 
+#define DEBUGGING true
+#define debugout if(DEBUGGING) std::cout
+
 void hclib::start_tracing()
 {
-  std::cout << "Starting tracing" << std::endl;
-	// tracing_enabled = true;
-	// reset_worker_AC_counter(numWorkers); // See Lecture #13, Slides #16
-	// /* Each worker’s AC value set to (workerID * UINT_MAX/numWorkers) */
-	// reset_worker_SC_counters(numWorkers);
+	debugout << "Starting tracing" << std::endl;
+	hclib_set_tracing_enabled(true);
+	reset_all_worker_AC_counter();
+	reset_all_worker_SC_counter();
 }
 
 void hclib::stop_tracing()
 {
-  std::cout << "Stopping tracing" << std::endl;
-	// if(replay_enabled == false)
-	// {
-	// 	list_aggregation(numWorkers); // See Lecture #13, Slides #35-36
-	// 	list_sorting(numWorkers); // See Lecture #13, Slides #37
-	// 	create_array_to_store_stolen_task(numWorkers); // See Lecture #13, Slides #39-40
-	// 	replay_enabled = true;
-	// }
+	if(!hclib_replay_enabled())
+	{
+		trace_list_aggregation();
+		trace_list_sorting();
+		create_array_to_store_stolen_task();
+		hclib_set_replay_enabled(true);
+		debugout << "Replay enabled" << std::endl;
+	}
 }
 
 int hclib::current_worker() {

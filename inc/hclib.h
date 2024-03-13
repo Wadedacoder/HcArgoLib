@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <stdbool.h>
 // #include <abt.h>
 
 #ifdef __cplusplus
@@ -31,8 +32,19 @@ int hclib_num_workers();
 void hclib_init(int argc, char **argv);
 void hclib_finalize();
 
-int hclib_tracing_enabled();
-int hclib_replay_enabled();
+bool hclib_tracing_enabled();
+bool hclib_replay_enabled();
+void hclib_set_tracing_enabled(bool enable_tracing);
+void hclib_set_replay_enabled(bool enable_replay);
+
+void reset_all_worker_AC_counter();
+void reset_worker_AC_counter(int numWorkers);
+void reset_all_worker_SC_counter();
+void reset_worker_SC_counter(int numWorkers);
+
+void create_array_to_store_stolen_task();
+void trace_list_aggregation();
+void trace_list_sorting();
 
 #ifdef __cplusplus
 }

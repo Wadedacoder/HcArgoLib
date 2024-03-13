@@ -16,6 +16,8 @@
 
 #include "hclib-internal.h"
 
+#include <limits.h>
+
 pthread_key_t selfKey;
 pthread_once_t selfKeyInitialized = PTHREAD_ONCE_INIT;
 
@@ -28,21 +30,123 @@ static double benchmark_start_time_stats = 0;
 
 // Trace-Replay Data
 
-trace_node** trace_list_for_worker;
+trace_node** trace_list_for_worker = NULL;
+trace_node** stolen_tasks_array = NULL;
 
 int* AC_for_worker;
 int* SC_for_worker;
 
-static int tracing_enabled = 0;
-static int replay_enabled = 0;
+static int tracing_enabled = false;
+static int replay_enabled = false;
 
-int hclib_tracing_enabled()
+bool hclib_tracing_enabled()
 {
     return tracing_enabled;
 }
-int hclib_replay_enabled()
+bool hclib_replay_enabled()
 {
     return replay_enabled;
+} 
+void hclib_set_tracing_enabled(bool enable_tracing)
+{
+    tracing_enabled = enable_tracing;
+}
+void hclib_set_replay_enabled(bool enable_replay)
+{
+    replay_enabled = enable_replay;
+}
+
+void reset_worker_AC_counter(int numWorkers)
+{
+    for(int workerID = 0; workerID < numWorkers; workerID++)
+    {
+        AC_for_worker[workerID] = workerID * INT_MAX/numWorkers;
+    }
+}
+void reset_all_worker_AC_counter()
+{
+    reset_worker_AC_counter(nb_workers);
+}
+
+void reset_worker_SC_counter(int numWorkers)
+{
+    for(int workerID = 0; workerID < numWorkers; workerID++)
+    {
+        SC_for_worker[workerID] = 0;
+    }
+}
+void reset_all_worker_SC_counter()
+{
+    reset_worker_SC_counter(nb_workers);
+}
+
+void create_array_to_store_stolen_task()
+{
+    stolen_tasks_array = (trace_node**)malloc(nb_workers * sizeof(trace_node));
+    for(int workerID = 0; workerID < nb_workers; workerID++)
+    {
+        stolen_tasks_array[workerID] = NULL;
+        if(SC_for_worker[workerID] > 0)
+            stolen_tasks_array[workerID] = (trace_node*)malloc(SC_for_worker[workerID] * sizeof(trace_node));
+    }
+}
+
+void trace_list_aggregation()
+{
+    trace_node** new_trace_list = (trace_node**)malloc(nb_workers*sizeof(trace_node*));
+    for(int workerID = 0; workerID < nb_workers; workerID++)
+    {
+        new_trace_list[workerID] = NULL;
+    }
+
+    for(int workerID = 0; workerID < nb_workers; workerID++)
+    {
+        trace_node* p = trace_list_for_worker[workerID];
+        while(p != NULL)
+        {
+            trace_node* q = p -> link;
+            p -> link = new_trace_list[p -> wC];
+            new_trace_list[p -> wC] = p;
+            p = q;
+        }
+    }
+    free(trace_list_for_worker);
+    trace_list_for_worker = new_trace_list;
+}
+
+void trace_list_sorting()
+{
+    for(int workerID = 0; workerID < nb_workers; workerID++)
+    {
+        int list_len = 0;
+        // TODO: Measure list length
+
+        for(int i = 0; i < list_len; i++)
+        {
+            trace_node* p = trace_list_for_worker[workerID];
+            if(p == NULL)
+                continue;
+            trace_node* prev = NULL;
+            while(p -> link != NULL)
+            {
+                if(p -> tid > p -> link -> tid)
+                {
+                    trace_node* q = p -> link;
+                    if(prev != NULL)
+                        prev -> link = q;
+                    
+                    p -> link = p -> link -> link;
+                    q -> link = p;
+                    prev = q;
+                }
+                else
+                {
+                    prev = p;
+                    p = p -> link;
+                }
+            }
+        }
+    }
 }
 
 double mysecond() {
@@ -84,6 +188,16 @@ void setup() {
       workers[i].current_finish = NULL;
       workers[i].id = i;
     }
+
+    // Set Trace data
+    AC_for_worker = (int*)malloc(nb_workers * sizeof(int));
+    SC_for_worker = (int*)malloc(nb_workers * sizeof(int));
+    trace_list_for_worker = (trace_node**)malloc(nb_workers * sizeof(trace_node*));
+    for(int worker_id = 0; worker_id < nb_workers; worker_id++)
+    {
+        trace_list_for_worker[worker_id] = NULL;
+    }
+
     // Start workers
     for(int i=1;i<nb_workers;i++) {
         pthread_attr_t attr;
@@ -197,6 +311,21 @@ void hclib_finalize() {
 	tpush+=workers[i].total_push;
 	tsteals+=workers[i].total_steals;
     }
+
+    // Free trace data
+    free(AC_for_worker);
+    free(SC_for_worker);
+    free(trace_list_for_worker);
+    if(stolen_tasks_array != NULL)
+    {
+        for(int workerID = 0; workerID < nb_workers; workerID++)
+        {
+            if(stolen_tasks_array[workerID] != NULL)
+                free(stolen_tasks_array[workerID]);
+        }
+        free(stolen_tasks_array);
+    }
+
     double duration = (mysecond() - benchmark_start_time_stats) * 1000;
     printf("============================ Tabulate Statistics ============================\n");
     printf("time.kernel\ttotalAsync\ttotalSteals\n");
