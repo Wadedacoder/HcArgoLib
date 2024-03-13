@@ -213,7 +213,7 @@ void* worker_routine(void * args) {
                    workers[wid].total_steals++;
                    break;
                }
-	       i++;s
+	       i++;
 	   }
         }
         if(task) {
