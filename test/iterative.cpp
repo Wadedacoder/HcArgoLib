@@ -17,7 +17,7 @@
 //48 * 256 * 2048
 #define SIZE 25165824
 // #define SIZE 100
-#define ITERATIONS 64
+#define ITERATIONS 5
 
 double* myNew, *myVal;
 int n;
@@ -57,9 +57,11 @@ void recurse(uint64_t low, uint64_t high) {
 
 void runParallel() {
   for(int i=0; i<ITERATIONS; i++) {
+    hclib::start_tracing();
     hclib::finish([&]() {
     recurse(1, SIZE+1);
     });
+    hclib::stop_tracing();
     double* temp = myNew;
     myNew = myVal;
     myVal = temp;

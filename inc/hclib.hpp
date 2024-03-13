@@ -45,5 +45,7 @@ void init(int argc, char ** argv);
 void finalize();
 int current_worker();
 int num_workers();
+void start_tracing();
+void stop_tracing();
 }
 

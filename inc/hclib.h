@@ -30,6 +30,10 @@ void end_finish();
 int hclib_num_workers();
 void hclib_init(int argc, char **argv);
 void hclib_finalize();
+
+int hclib_tracing_enabled();
+int hclib_replay_enabled();
+
 #ifdef __cplusplus
 }
 #endif

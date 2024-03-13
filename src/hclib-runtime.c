@@ -26,6 +26,25 @@ int not_done;
 static double user_specified_timer = 0;
 static double benchmark_start_time_stats = 0;
 
+// Trace-Replay Data
+
+trace_node** trace_list_for_worker;
+
+int* AC_for_worker;
+int* SC_for_worker;
+
+static int tracing_enabled = 0;
+static int replay_enabled = 0;
+
+int hclib_tracing_enabled()
+{
+    return tracing_enabled;
+}
+int hclib_replay_enabled()
+{
+    return replay_enabled;
+}
+
 double mysecond() {
     struct timeval tv;
     gettimeofday(&tv, 0);
