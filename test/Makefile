@@ -1,7 +1,7 @@
 HCLIB_ROOT = /home/dev/PRMP/tmp/hclib-light/hclib-install/
 include ${HCLIB_ROOT}/include/hclib.mak
 
-TARGETS := fib fib-reducer
+TARGETS := fib fib-reducer iterative
 
 all: clean $(TARGETS) clean-obj
 
