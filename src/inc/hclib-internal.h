@@ -37,13 +37,3 @@ typedef struct hclib_worker_state {
     long total_push;
     long total_steals;
 } hclib_worker_state;
-
-typedef struct trace_node
-{
-	int tid; // task ID
-	int wC; // Worker who created the task
-	int wE; // Worker who executed the task
-	int SC; // Steal counter
-
-    struct trace_node* link;
-} trace_node;

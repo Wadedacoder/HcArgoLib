@@ -91,17 +91,17 @@ void create_array_to_store_stolen_task()
     }
 }
 
-void trace_list_aggregation()
+void trace_list_aggregation(trace_node** trace_list, int numWorkers)
 {
-    trace_node** new_trace_list = (trace_node**)malloc(nb_workers*sizeof(trace_node*));
-    for(int workerID = 0; workerID < nb_workers; workerID++)
+    trace_node** new_trace_list = (trace_node**)malloc(numWorkers*sizeof(trace_node*));
+    for(int workerID = 0; workerID < numWorkers; workerID++)
     {
         new_trace_list[workerID] = NULL;
     }
 
-    for(int workerID = 0; workerID < nb_workers; workerID++)
+    for(int workerID = 0; workerID < numWorkers; workerID++)
     {
-        trace_node* p = trace_list_for_worker[workerID];
+        trace_node* p = trace_list[workerID];
         while(p != NULL)
         {
             trace_node* q = p -> link;
@@ -110,20 +110,32 @@ void trace_list_aggregation()
             p = q;
         }
     }
-    free(trace_list_for_worker);
-    trace_list_for_worker = new_trace_list;
+    for(int i = 0; i < numWorkers; i++)
+        trace_list[i] = new_trace_list[i];
+    free(new_trace_list);
+    // trace_list = new_trace_list;
 }
 
-void trace_list_sorting()
+void trace_list_aggregation_all()
 {
-    for(int workerID = 0; workerID < nb_workers; workerID++)
+    trace_list_aggregation(trace_list_for_worker, nb_workers);
+}
+
+void trace_list_sorting(trace_node** trace_list, int numWorkers)
+{
+    for(int workerID = 0; workerID < numWorkers; workerID++)
     {
         int list_len = 0;
-        // TODO: Measure list length
+        trace_node* p = trace_list[workerID];
+        while(p != NULL)
+        {
+            list_len++;
+            p = p -> link;
+        }
 
         for(int i = 0; i < list_len; i++)
         {
-            trace_node* p = trace_list_for_worker[workerID];
+            trace_node* p = trace_list[workerID];
             if(p == NULL)
                 continue;
             trace_node* prev = NULL;
@@ -134,6 +146,8 @@ void trace_list_sorting()
                     trace_node* q = p -> link;
                     if(prev != NULL)
                         prev -> link = q;
+                    else
+                        trace_list[workerID] = q;
                     
                     p -> link = p -> link -> link;
                     q -> link = p;
@@ -147,6 +161,11 @@ void trace_list_sorting()
             }
         }
     }
+}
+
+void trace_list_sorting_all()
+{
+    trace_list_sorting(trace_list_for_worker, nb_workers);
 }
 
 double mysecond() {
@@ -369,4 +388,79 @@ void* worker_routine(void * args) {
         }
     }
     return NULL;
+}
+
+
+// TEST METHODS: All methods beginning with 'test' are for testing purposes and are not used for execution
+
+trace_node** test_set_default_trace_lists()
+{
+    int num_lists = 2;
+    trace_node** default_trace_lists = (trace_node**)malloc(num_lists * sizeof(trace_node*));
+    for(int i = 0; i < num_lists; i++)
+    {
+        default_trace_lists[i] = NULL;
+    }
+    
+    trace_node* p00 = (trace_node*)malloc(sizeof(trace_node));
+    trace_node* p10 = (trace_node*)malloc(sizeof(trace_node));
+    trace_node* p11 = (trace_node*)malloc(sizeof(trace_node));
+    trace_node* p20 = (trace_node*)malloc(sizeof(trace_node));
+    trace_node* p21 = (trace_node*)malloc(sizeof(trace_node));
+    trace_node* p22 = (trace_node*)malloc(sizeof(trace_node));
+
+    p00 -> tid = 102;
+    p00 -> wC = 1;
+    p00 -> wE = 0;
+    p00 -> SC = 0;
+    p00 -> link = NULL;
+
+    p10 -> tid = 1;
+    p10 -> wC = 0;
+    p10 -> wE = 1;
+    p10 -> SC = 0;
+    p10 -> link = p11;
+    p11 -> tid = 10001;
+    p11 -> wC = 2;
+    p11 -> wE = 1;
+    p11 -> SC = 1;
+    p11 -> link = NULL;
+
+    p20 -> tid = 101;
+    p20 -> wC = 1;
+    p20 -> wE = 2;
+    p20 -> SC = 0;
+    p20 -> link = p21;
+    p21 -> tid = 2;
+    p21 -> wC = 0;
+    p21 -> wE = 2;
+    p21 -> SC = 1;
+    p21 -> link = p22;
+    p22 -> tid = 103;
+    p22 -> wC = 1;
+    p22 -> wE = 2;
+    p22 -> SC = 2;
+    p22 -> link = NULL;
+
+
+    default_trace_lists[0] = p00;
+    default_trace_lists[1] = p10;
+    default_trace_lists[2] = p20;
+
+    return default_trace_lists;
+}
+
+void test_print_trace_list(trace_node** trace_list, int numWorkers)
+{
+    for(int workerID=0; workerID < numWorkers; workerID++)
+    {
+        printf("W%d: ", workerID);
+        trace_node* p = trace_list[workerID];
+        while(p != NULL)
+        {
+            printf("[%d | %d | %d | %d] ---> \t", p -> tid, p -> wC, p -> wE, p -> SC);
+            p = p -> link;
+        }
+        printf("X\n");
+    }
 }

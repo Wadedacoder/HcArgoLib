@@ -71,6 +71,9 @@ void runParallel() {
 
 int main (int argc, char ** argv) {
     hclib::init(argc, argv);
+    // TODO: REMOVE the below test line
+    // hclib::test_trace_aggregation_sort();
+
     myNew = new double[(SIZE + 2)];
     myVal = new double[(SIZE + 2)];
     memset(myNew, 0, sizeof(double) * (SIZE + 2));

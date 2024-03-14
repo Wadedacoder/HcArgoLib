@@ -17,6 +17,16 @@ typedef struct task_t {
     struct finish_t* current_finish;
 } task_t;
 
+typedef struct trace_node
+{
+	int tid; // task ID
+	int wC; // Worker who created the task
+	int wE; // Worker who executed the task
+	int SC; // Steal counter
+
+    struct trace_node* link;
+} trace_node;
+
 /**
  * @brief Spawn a new task asynchronously.
  * @param[in] fct_ptr           The function to execute
@@ -43,8 +53,13 @@ void reset_all_worker_SC_counter();
 void reset_worker_SC_counter(int numWorkers);
 
 void create_array_to_store_stolen_task();
-void trace_list_aggregation();
-void trace_list_sorting();
+void trace_list_aggregation(trace_node** trace_list, int numWorkers);
+void trace_list_aggregation_all();
+void trace_list_sorting(trace_node** trace_list, int numWorkers);
+void trace_list_sorting_all();
+
+trace_node** test_set_default_trace_lists();
+void test_print_trace_list(trace_node** trace_list, int numWorkers);
 
 #ifdef __cplusplus
 }

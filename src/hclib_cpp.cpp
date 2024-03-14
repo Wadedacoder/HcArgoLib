@@ -32,12 +32,30 @@ void hclib::stop_tracing()
 {
 	if(!hclib_replay_enabled())
 	{
-		trace_list_aggregation();
-		trace_list_sorting();
+		trace_list_aggregation_all();
+		trace_list_sorting_all();
 		create_array_to_store_stolen_task();
 		hclib_set_replay_enabled(true);
 		debugout << "Replay enabled" << std::endl;
 	}
+}
+
+void hclib::test_trace_aggregation_sort()
+{
+	int num_workers = 3;
+	printf("*** TESTING LIST AGGREGATION AND SORTING ***\n\n");
+	trace_node** default_trace_list = test_set_default_trace_lists();
+	printf("INITIAL LISTS:\n");
+	test_print_trace_list(default_trace_list, num_workers);
+
+	trace_list_aggregation(default_trace_list, num_workers);
+	printf("\nAGGREGATED LISTS:\n");
+	test_print_trace_list(default_trace_list, num_workers);
+
+	trace_list_sorting(default_trace_list, num_workers);
+	printf("\nSORTED LISTS:\n");
+	test_print_trace_list(default_trace_list, num_workers);
+	printf("\n");
 }
 
 int hclib::current_worker() {
