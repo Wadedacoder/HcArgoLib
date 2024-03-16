@@ -31,7 +31,9 @@ static double benchmark_start_time_stats = 0;
 // Trace-Replay Data
 
 trace_node** trace_list_for_worker = NULL;
-trace_node** stolen_tasks_array = NULL;
+trace_node** trace_list_for_replay = NULL;
+task_t*** stolen_tasks_array = NULL;
+int* index_for_stolen_tasks_array;
 
 int* AC_for_worker;
 int* SC_for_worker;
@@ -55,7 +57,6 @@ void hclib_set_replay_enabled(bool enable_replay)
 {
     replay_enabled = enable_replay;
 }
-
 void reset_worker_AC_counter(int numWorkers)
 {
     for(int workerID = 0; workerID < numWorkers; workerID++)
@@ -82,12 +83,20 @@ void reset_all_worker_SC_counter()
 
 void create_array_to_store_stolen_task()
 {
-    stolen_tasks_array = (trace_node**)malloc(nb_workers * sizeof(trace_node));
+    stolen_tasks_array = (task_t***)malloc(nb_workers * sizeof(task_t**));
+    if(DEBUGGING){
+            // make the SC_for_worker array
+        SC_for_worker[0] = 1;
+        SC_for_worker[1] = 2;
+        SC_for_worker[2] = 3;
+    }
     for(int workerID = 0; workerID < nb_workers; workerID++)
     {
         stolen_tasks_array[workerID] = NULL;
-        if(SC_for_worker[workerID] > 0)
-            stolen_tasks_array[workerID] = (trace_node*)malloc(SC_for_worker[workerID] * sizeof(trace_node));
+        if(SC_for_worker[workerID] > 0){
+            stolen_tasks_array[workerID] = (task_t**)malloc(SC_for_worker[workerID] * sizeof(task_t*));
+        }
+        debugout("Stolen tasks array for worker %d of size %d is created\n", workerID, SC_for_worker[workerID]);
     }
 }
 
@@ -166,6 +175,7 @@ void trace_list_sorting(trace_node** trace_list, int numWorkers)
 void trace_list_sorting_all()
 {
     trace_list_sorting(trace_list_for_worker, nb_workers);
+    test_print_trace_list(trace_list_for_worker, nb_workers);
 }
 
 double mysecond() {
@@ -195,6 +205,23 @@ int hclib_num_workers() {
 //FWD declaration for pthread_create
 void * worker_routine(void * args);
 
+void reset_for_replay()
+{
+    // change th replay list to the original list
+    for(int workerID = 0; workerID < nb_workers; workerID++)
+    {
+        trace_list_for_replay[workerID] = trace_list_for_worker[workerID];
+        if(trace_list_for_replay[workerID] == NULL) continue;
+        debugout("Replay list for worker %d. Starting task: %d\n", workerID, trace_list_for_replay[workerID] -> tid);
+    }
+    // MAKE index_for_stolen_tasks_array to 0
+    for(int workerID = 0; workerID < nb_workers; workerID++)
+    {
+        index_for_stolen_tasks_array[workerID] = 0;
+        AC_for_worker[workerID] = 0;
+    }
+}
+
 void setup() {
     // Build queues
     not_done = 1;
@@ -216,7 +243,15 @@ void setup() {
     {
         trace_list_for_worker[worker_id] = NULL;
     }
+    trace_list_for_worker  = test_set_default_trace_lists();
 
+    // Set Replay data
+    trace_list_for_replay = (trace_node**)malloc(nb_workers * sizeof(trace_node*));
+    for(int worker_id = 0; worker_id < nb_workers; worker_id++)
+    {
+        trace_list_for_replay[worker_id] = NULL;
+    }
+    index_for_stolen_tasks_array = (int*)malloc(nb_workers * sizeof(int));
     // Start workers
     for(int i=1;i<nb_workers;i++) {
         pthread_attr_t attr;
@@ -262,8 +297,23 @@ void spawn(task_t * task) {
     check_in_finish(ws->current_finish);
     task->current_finish = ws->current_finish;
     // push on worker deq
-    dequePush(ws->deque, task);
+    if(replay_enabled && (trace_list_for_replay[wid] != NULL && trace_list_for_replay[wid] -> tid == AC_for_worker[wid]))
+    {
+        // put the task in the stolen_tasks_array of the WE worker
+        debugout("Task %d is replayed by worker %d\n", trace_list_for_replay[wid] -> tid, wid);
+        int WE = trace_list_for_replay[wid] -> wE;
+        int SC = trace_list_for_replay[wid] -> SC;
+        debugout("WE: %d, SC: %d\n", WE, SC);
+        stolen_tasks_array[WE][SC] = task;
+        int tid = trace_list_for_replay[wid] -> tid;
+        trace_list_for_replay[wid] = trace_list_for_replay[wid] -> link;
+        debugout("Task %d is stolen by worker %d\n", tid, WE);
+    }
+    else{
+        dequePush(ws->deque, task);
+    }
     ws->total_push++;
+    AC_for_worker[wid]++;
 }
 
 void hclib_async(generic_frame_ptr fct_ptr, void * arg) {
@@ -276,23 +326,40 @@ void hclib_async(generic_frame_ptr fct_ptr, void * arg) {
 }
 
 void slave_worker_finishHelper_routine(finish_t* finish) {
-   int wid = hclib_current_worker();
-   while(finish->counter > 0) {
+    int wid = hclib_current_worker();
+    while(finish->counter > 0) {
        task_t* task = dequePop(workers[wid].deque);
        if (!task) {
+            debugout("Worker %d is trying to steal\n", wid);
            // try to steal
-           int i = 1;
-           while(finish->counter > 0 && i < nb_workers) {
-               task = dequeSteal(workers[(wid+i)%(nb_workers)].deque);
-	       if(task) {
-		   workers[wid].total_steals++;	   
-	           break;
-	       }
-	       i++;
-	   }
+           if(replay_enabled){
+               if(index_for_stolen_tasks_array[wid] < SC_for_worker[wid]){ // check if the stolen_tasks_array of the WE worker is not full
+                   // get the task from the stolen_tasks_array of the WE worker
+                   task = stolen_tasks_array[wid][index_for_stolen_tasks_array[wid]];
+                   if(task)
+                   {
+                       index_for_stolen_tasks_array[wid]++;
+                          workers[wid].total_steals++;
+                          break;
+                       debugout("Task is replayed by worker %d\n", wid);
+                   }
+               }
+           }
+           else{
+                int i = 1;
+                while (i < nb_workers && finish->counter > 0) {
+                    task = dequeSteal(workers[(wid+i)%(nb_workers)].deque);
+	                if(task) {
+                        workers[wid].total_steals++;
+                        break;
+                    }
+	                i++;
+                }
+	        }
         }
         if(task) {
-            execute_task(task);
+            // printf("Worker %d is executing task\n", task->_fp);
+        execute_task(task);
         }
     }
 }
@@ -373,19 +440,36 @@ void* worker_routine(void * args) {
        task_t* task = dequePop(workers[wid].deque);
        if (!task) {
            // try to steal
-           int i = 1;
-           while (i < nb_workers) {
-               task = dequeSteal(workers[(wid+i)%(nb_workers)].deque);
-	       if(task) {
-                   workers[wid].total_steals++;
-                   break;
+           if(replay_enabled){
+               if(index_for_stolen_tasks_array[wid] < SC_for_worker[wid]) // check if the stolen_tasks_array of the WE worker is not full
+               {
+                   // get the task from the stolen_tasks_array of the WE worker
+                   task = stolen_tasks_array[wid][index_for_stolen_tasks_array[wid]];
+                   if(task)
+                   {
+                       index_for_stolen_tasks_array[wid]++;
+                          workers[wid].total_steals++;
+                          SC_for_worker[wid]++;
+                       debugout("Task is replayed by worker %d\n", wid);
+                   }
                }
-	       i++;
-	   }
-        }
+           }
+           else{
+                int i = 1;
+                while (i < nb_workers) {
+                    task = dequeSteal(workers[(wid+i)%(nb_workers)].deque);
+	                if(task) {
+                        workers[wid].total_steals++;
+                        break;
+                    }
+	                i++;
+                }
+            }
         if(task) {
             execute_task(task);
         }
+	   }
+
     }
     return NULL;
 }
@@ -395,7 +479,7 @@ void* worker_routine(void * args) {
 
 trace_node** test_set_default_trace_lists()
 {
-    int num_lists = 2;
+    int num_lists = nb_workers;
     trace_node** default_trace_lists = (trace_node**)malloc(num_lists * sizeof(trace_node*));
     for(int i = 0; i < num_lists; i++)
     {
@@ -415,12 +499,12 @@ trace_node** test_set_default_trace_lists()
     p00 -> SC = 0;
     p00 -> link = NULL;
 
-    p10 -> tid = 1;
+    p10 -> tid = 10;
     p10 -> wC = 0;
     p10 -> wE = 1;
     p10 -> SC = 0;
     p10 -> link = p11;
-    p11 -> tid = 10001;
+    p11 -> tid = 109;
     p11 -> wC = 2;
     p11 -> wE = 1;
     p11 -> SC = 1;
@@ -431,7 +515,7 @@ trace_node** test_set_default_trace_lists()
     p20 -> wE = 2;
     p20 -> SC = 0;
     p20 -> link = p21;
-    p21 -> tid = 2;
+    p21 -> tid = 20;
     p21 -> wC = 0;
     p21 -> wE = 2;
     p21 -> SC = 1;
@@ -446,6 +530,7 @@ trace_node** test_set_default_trace_lists()
     default_trace_lists[0] = p00;
     default_trace_lists[1] = p10;
     default_trace_lists[2] = p20;
+
 
     return default_trace_lists;
 }

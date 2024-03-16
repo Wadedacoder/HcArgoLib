@@ -58,6 +58,8 @@ void trace_list_aggregation_all();
 void trace_list_sorting(trace_node** trace_list, int numWorkers);
 void trace_list_sorting_all();
 
+void reset_for_replay();
+
 trace_node** test_set_default_trace_lists();
 void test_print_trace_list(trace_node** trace_list, int numWorkers);
 

@@ -24,6 +24,9 @@
 #include "hclib-deque.h"
 #include "hclib-atomics.h"
 
+#define DEBUGGING true
+#define debugout if(DEBUGGING) printf
+
 typedef struct finish_t {
     struct finish_t* parent;
     volatile int counter;
