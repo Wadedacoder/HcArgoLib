@@ -24,7 +24,7 @@
 #include "hclib-deque.h"
 #include "hclib-atomics.h"
 
-#define DEBUGGING true
+#define DEBUGGING false
 #define debugout if(DEBUGGING) printf
 
 typedef struct finish_t {

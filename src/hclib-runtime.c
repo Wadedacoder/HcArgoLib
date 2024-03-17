@@ -96,7 +96,12 @@ void create_array_to_store_stolen_task()
     {
         stolen_tasks_array[workerID] = NULL;
         if(SC_for_worker[workerID] > 0){
-            stolen_tasks_array[workerID] = (task_t**)malloc(SC_for_worker[workerID] * sizeof(task_t*));
+            stolen_tasks_array[workerID] = (task_t**)malloc((SC_for_worker[workerID]+1) * sizeof(task_t*));
+            // set each element to NULL
+            for(int i = 0; i < SC_for_worker[workerID]+1; i++)
+            {
+                stolen_tasks_array[workerID][i] = NULL;
+            }
         }
         debugout("Stolen tasks array for worker %d of size %d is created\n", workerID, SC_for_worker[workerID]);
     }
@@ -177,7 +182,7 @@ void trace_list_sorting(trace_node** trace_list, int numWorkers)
 void trace_list_sorting_all()
 {
     trace_list_sorting(trace_list_for_worker, nb_workers);
-    test_print_trace_list(trace_list_for_worker, nb_workers);
+    // test_print_trace_list(trace_list_for_worker, nb_workers);
 }
 
 void record_task_stolen_from_victim(int tid, int wC, int wE, int SC, task_t* task)
@@ -234,7 +239,11 @@ void reset_for_replay()
     for(int workerID = 0; workerID < nb_workers; workerID++)
     {
         index_for_stolen_tasks_array[workerID] = 0;
-        AC_for_worker[workerID] = 0;
+        AC_for_worker[workerID] = workerID * INT_MAX/nb_workers;
+        for(int i = 0; i < SC_for_worker[workerID]; i++)
+        {
+            stolen_tasks_array[workerID][i] = NULL;
+        }
     }
 }
 
@@ -313,23 +322,40 @@ void spawn(task_t * task) {
     check_in_finish(ws->current_finish);
     task->current_finish = ws->current_finish;
     // push on worker deq
-    if(replay_enabled && (trace_list_for_replay[wid] != NULL && trace_list_for_replay[wid] -> tid == AC_for_worker[wid]))
+    // debugout("Pushing task %d to worker %d with AC %d", task->tid, wid, AC_for_worker[wid]);
+    // if(replay_enabled) debugout(" and replay task %d\n", trace_list_for_replay[wid] -> tid);
+    // else debugout("\n");
+    if(replay_enabled )
     {
+        if(trace_list_for_replay[wid] != NULL && trace_list_for_replay[wid] -> tid == task->tid){
         // put the task in the stolen_tasks_array of the WE worker
-        debugout("Task %d is replayed by worker %d\n", trace_list_for_replay[wid] -> tid, wid);
-        int WE = trace_list_for_replay[wid] -> wE;
-        int SC = trace_list_for_replay[wid] -> SC;
-        debugout("WE: %d, SC: %d\n", WE, SC);
-        stolen_tasks_array[WE][SC] = task;
-        int tid = trace_list_for_replay[wid] -> tid;
-        trace_list_for_replay[wid] = trace_list_for_replay[wid] -> link;
-        debugout("Task %d is stolen by worker %d\n", tid, WE);
+        // debugout("Task %d is replayed by worker %d\n", trace_list_for_replay[wid] -> tid, wid);
+            int WE = trace_list_for_replay[wid] -> wE;
+            int SC = trace_list_for_replay[wid] -> SC;
+            // debugout("WE: %d, SC: %d\n", WE, SC);
+            stolen_tasks_array[WE][SC] = task;
+            int tid = trace_list_for_replay[wid] -> tid;
+            trace_list_for_replay[wid] = trace_list_for_replay[wid] -> link;
+            // debugout("Task %d is stolen by worker %d\n", tid, WE);
+            // print the next task in the replay list
+            if(trace_list_for_replay[wid] != NULL){
+                // debugout("Next task in the replay list for worker %d: %d\n", wid, trace_list_for_replay[wid] -> tid);
+            }
+            else{
+                // debugout("Replay list for worker %d is empty\n", wid);
+            }
+        }
+        else{
+            // debugout("Task %d is not replayed by worker %d\n", task -> tid, wid);
+            dequePush(ws->deque, task);
+        }
     }
+
     else{
         dequePush(ws->deque, task);
     }
     ws->total_push++;
-    AC_for_worker[wid]++;
+    // AC_for_worker[wid]++;
 }
 
 void hclib_async(generic_frame_ptr fct_ptr, void * arg) {
@@ -340,11 +366,12 @@ void hclib_async(generic_frame_ptr fct_ptr, void * arg) {
     };
     // Add task ID to the new taskafter incrementing the current worker's async counter
     int wid = hclib_current_worker();
-    task -> tid = ++AC_for_worker[wid];
+    hc_atomic_inc(&(AC_for_worker[wid]));
+    task -> tid = AC_for_worker[wid];
     
     spawn(task);
 }
-
+//
 void slave_worker_finishHelper_routine(finish_t* finish) {
     int wid = hclib_current_worker();
     while(finish->counter > 0) {
@@ -353,15 +380,15 @@ void slave_worker_finishHelper_routine(finish_t* finish) {
             // debugout("Worker %d is trying to steal\n", wid);
             // try to steal
             if(replay_enabled){
+                
                 if(index_for_stolen_tasks_array[wid] < SC_for_worker[wid]){ // check if the stolen_tasks_array of the WE worker is not full
                     // get the task from the stolen_tasks_array of the WE worker
                     task = stolen_tasks_array[wid][index_for_stolen_tasks_array[wid]];
                     if(task)
                     {
-                        index_for_stolen_tasks_array[wid]++;
+                        hc_atomic_inc(&(index_for_stolen_tasks_array[wid]));
                             workers[wid].total_steals++;
-                            break;
-                        debugout("Task is replayed by worker %d\n", wid);
+                        debugout("Task %d is replayed by worker %d\n", task -> tid, wid);
                     }
                 }
             }
@@ -384,7 +411,10 @@ void slave_worker_finishHelper_routine(finish_t* finish) {
 	        }
         }
         if(task) {
-            // printf("Worker %d is executing task\n", task->_fp);
+            debugout("Worker %d is executing task %d\n", wid, task -> tid);  
+            debugout("The finish counter is %d\n", task -> current_finish -> counter);
+            // Change AC_for_worker[wid] to the task's ID
+            // AC_for_worker[wid] = task -> tid;
         execute_task(task);
         }
     }
@@ -473,9 +503,8 @@ void* worker_routine(void * args) {
                     task = stolen_tasks_array[wid][index_for_stolen_tasks_array[wid]];
                     if(task)
                     {
-                        index_for_stolen_tasks_array[wid]++;
+                        hc_atomic_inc(&(index_for_stolen_tasks_array[wid]));
                             workers[wid].total_steals++;
-                            SC_for_worker[wid]++;
                         debugout("Task is replayed by worker %d\n", wid);
                     }
                 }
