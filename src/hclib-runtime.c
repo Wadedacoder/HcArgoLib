@@ -17,6 +17,7 @@
 #include "hclib-internal.h"
 
 #include <limits.h>
+#include <stdint.h>
 
 pthread_key_t selfKey;
 pthread_once_t selfKeyInitialized = PTHREAD_ONCE_INIT;
@@ -35,7 +36,7 @@ trace_node** trace_list_for_replay = NULL;
 task_t*** stolen_tasks_array = NULL;
 int* index_for_stolen_tasks_array;
 
-int* AC_for_worker;
+long long* AC_for_worker;
 int* SC_for_worker;
 
 static int tracing_enabled = false;
@@ -61,7 +62,7 @@ void reset_worker_AC_counter(int numWorkers)
 {
     for(int workerID = 0; workerID < numWorkers; workerID++)
     {
-        AC_for_worker[workerID] = workerID * INT_MAX/numWorkers;
+        AC_for_worker[workerID] = workerID * (10000000/numWorkers);
     }
 }
 void reset_all_worker_AC_counter()
@@ -95,7 +96,8 @@ void create_array_to_store_stolen_task()
     for(int workerID = 0; workerID < nb_workers; workerID++)
     {
         stolen_tasks_array[workerID] = NULL;
-        if(SC_for_worker[workerID] > 0){
+        // if(SC_for_worker[workerID] > 0){
+        if(true){
             stolen_tasks_array[workerID] = (task_t**)malloc((SC_for_worker[workerID]+1) * sizeof(task_t*));
             // set each element to NULL
             for(int i = 0; i < SC_for_worker[workerID]+1; i++)
@@ -239,8 +241,9 @@ void reset_for_replay()
     for(int workerID = 0; workerID < nb_workers; workerID++)
     {
         index_for_stolen_tasks_array[workerID] = 0;
-        AC_for_worker[workerID] = workerID * INT_MAX/nb_workers;
-        for(int i = 0; i < SC_for_worker[workerID]; i++)
+        reset_all_worker_AC_counter();
+        // AC_for_worker[workerID] = workerID * (10000000/nb_workers);
+        for(int i = 0; i < SC_for_worker[workerID]+1; i++)
         {
             stolen_tasks_array[workerID][i] = NULL;
         }
@@ -261,14 +264,13 @@ void setup() {
     }
 
     // Set Trace data
-    AC_for_worker = (int*)malloc(nb_workers * sizeof(int));
+    AC_for_worker = (long long*)malloc(nb_workers * sizeof(long long));
     SC_for_worker = (int*)malloc(nb_workers * sizeof(int));
     trace_list_for_worker = (trace_node**)malloc(nb_workers * sizeof(trace_node*));
     for(int worker_id = 0; worker_id < nb_workers; worker_id++)
     {
         trace_list_for_worker[worker_id] = NULL;
     }
-    // trace_list_for_worker = test_set_default_trace_lists();
 
     // Set Replay data
     trace_list_for_replay = (trace_node**)malloc(nb_workers * sizeof(trace_node*));
@@ -296,7 +298,7 @@ void check_out_finish(finish_t * finish) {
     if(finish) hc_atomic_dec(&(finish->counter));
 }
 
-void hclib_init(int argc, char **argv) {
+void hclib_init(int32_t argc, char **argv) {
     printf("---------HCLIB_RUNTIME_INFO-----------\n");
     printf(">>> HCLIB_WORKERS\t= %s\n", getenv("HCLIB_WORKERS"));
     printf("----------------------------------------\n");
@@ -325,7 +327,7 @@ void spawn(task_t * task) {
     // debugout("Pushing task %d to worker %d with AC %d", task->tid, wid, AC_for_worker[wid]);
     // if(replay_enabled) debugout(" and replay task %d\n", trace_list_for_replay[wid] -> tid);
     // else debugout("\n");
-    if(replay_enabled )
+    if(replay_enabled)
     {
         if(trace_list_for_replay[wid] != NULL && trace_list_for_replay[wid] -> tid == task->tid){
         // put the task in the stolen_tasks_array of the WE worker
@@ -338,12 +340,12 @@ void spawn(task_t * task) {
             trace_list_for_replay[wid] = trace_list_for_replay[wid] -> link;
             // debugout("Task %d is stolen by worker %d\n", tid, WE);
             // print the next task in the replay list
-            if(trace_list_for_replay[wid] != NULL){
-                // debugout("Next task in the replay list for worker %d: %d\n", wid, trace_list_for_replay[wid] -> tid);
-            }
-            else{
-                // debugout("Replay list for worker %d is empty\n", wid);
-            }
+            // if(trace_list_for_replay[wid] != NULL){
+            //     // debugout("Next task in the replay list for worker %d: %d\n", wid, trace_list_for_replay[wid] -> tid);
+            // }
+            // else{
+            //     // debugout("Replay list for worker %d is empty\n", wid);
+            // }
         }
         else{
             // debugout("Task %d is not replayed by worker %d\n", task -> tid, wid);
@@ -359,14 +361,15 @@ void spawn(task_t * task) {
 }
 
 void hclib_async(generic_frame_ptr fct_ptr, void * arg) {
-    task_t * task = malloc(sizeof(*task));
+    task_t * task = (task_t*)malloc(sizeof(task_t));
     *task = (task_t){
         ._fp = fct_ptr,
         .args = arg,
     };
     // Add task ID to the new taskafter incrementing the current worker's async counter
     int wid = hclib_current_worker();
-    hc_atomic_inc(&(AC_for_worker[wid]));
+    // hc_atomic_inc(&(AC_for_worker[wid]));
+    AC_for_worker[wid]++;
     task -> tid = AC_for_worker[wid];
     
     spawn(task);
@@ -386,8 +389,9 @@ void slave_worker_finishHelper_routine(finish_t* finish) {
                     task = stolen_tasks_array[wid][index_for_stolen_tasks_array[wid]];
                     if(task)
                     {
-                        hc_atomic_inc(&(index_for_stolen_tasks_array[wid]));
-                            workers[wid].total_steals++;
+                        // hc_atomic_inc(&(index_for_stolen_tasks_array[wid]));
+                        index_for_stolen_tasks_array[wid]++;
+                        workers[wid].total_steals++;
                         debugout("Task %d is replayed by worker %d\n", task -> tid, wid);
                     }
                 }
@@ -401,7 +405,8 @@ void slave_worker_finishHelper_routine(finish_t* finish) {
                         if(tracing_enabled)
                         {
                             // if the task is stolen successfilly, record it in its trace list
-                            record_task_stolen_from_victim(task -> tid, wC, wid, SC_for_worker[wid]++, task);
+                            record_task_stolen_from_victim(task -> tid, wC, wid, SC_for_worker[wid], task);
+                            SC_for_worker[wid]++;
                         }
                         workers[wid].total_steals++;
                         break;
@@ -534,64 +539,6 @@ void* worker_routine(void * args) {
 
 
 // TEST METHODS: All methods beginning with 'test' are for testing purposes and are not used for execution
-
-trace_node** test_set_default_trace_lists()
-{
-    int num_lists = nb_workers;
-    trace_node** default_trace_lists = (trace_node**)malloc(num_lists * sizeof(trace_node*));
-    for(int i = 0; i < num_lists; i++)
-    {
-        default_trace_lists[i] = NULL;
-    }
-    
-    trace_node* p00 = (trace_node*)malloc(sizeof(trace_node));
-    trace_node* p10 = (trace_node*)malloc(sizeof(trace_node));
-    trace_node* p11 = (trace_node*)malloc(sizeof(trace_node));
-    trace_node* p20 = (trace_node*)malloc(sizeof(trace_node));
-    trace_node* p21 = (trace_node*)malloc(sizeof(trace_node));
-    trace_node* p22 = (trace_node*)malloc(sizeof(trace_node));
-
-    p00 -> tid = 102;
-    p00 -> wC = 1;
-    p00 -> wE = 0;
-    p00 -> SC = 0;
-    p00 -> link = NULL;
-
-    p10 -> tid = 10;
-    p10 -> wC = 0;
-    p10 -> wE = 1;
-    p10 -> SC = 0;
-    p10 -> link = p11;
-    p11 -> tid = 109;
-    p11 -> wC = 2;
-    p11 -> wE = 1;
-    p11 -> SC = 1;
-    p11 -> link = NULL;
-
-    p20 -> tid = 101;
-    p20 -> wC = 1;
-    p20 -> wE = 2;
-    p20 -> SC = 0;
-    p20 -> link = p21;
-    p21 -> tid = 20;
-    p21 -> wC = 0;
-    p21 -> wE = 2;
-    p21 -> SC = 1;
-    p21 -> link = p22;
-    p22 -> tid = 103;
-    p22 -> wC = 1;
-    p22 -> wE = 2;
-    p22 -> SC = 2;
-    p22 -> link = NULL;
-
-
-    default_trace_lists[0] = p00;
-    default_trace_lists[1] = p10;
-    default_trace_lists[2] = p20;
-
-
-    return default_trace_lists;
-}
 
 void test_print_trace_list(trace_node** trace_list, int numWorkers)
 {

@@ -15,7 +15,7 @@
  */
 
 //48 * 256 * 2048
-#define SIZE 25165824
+#define SIZE 4 * 256 * 2048
 // #define SIZE 100
 #define ITERATIONS 64
 
@@ -65,6 +65,7 @@ void runParallel() {
     myNew = myVal;
     myVal = temp;
   for(int i=1; i<ITERATIONS; i++) {
+    std::cout << "I" << i << " " << std::flush;
     // hclib::start_tracing();
     hclib::reset_replay();
     hclib::finish([&]() {

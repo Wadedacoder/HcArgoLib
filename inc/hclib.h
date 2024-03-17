@@ -2,6 +2,7 @@
 #include <string.h>
 #include <assert.h>
 #include <stdbool.h>
+#include <stdint.h>
 // #include <abt.h>
 
 #ifdef __cplusplus
@@ -42,7 +43,7 @@ int hclib_current_worker();
 void start_finish();
 void end_finish();
 int hclib_num_workers();
-void hclib_init(int argc, char **argv);
+void hclib_init(int32_t argc, char **argv);
 void hclib_finalize();
 
 bool hclib_tracing_enabled();
