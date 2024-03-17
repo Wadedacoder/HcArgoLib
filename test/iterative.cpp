@@ -15,9 +15,9 @@
  */
 
 //48 * 256 * 2048
-#define SIZE 4 * 256 * 2048
+#define SIZE 48 * 256 * 2048
 // #define SIZE 100
-#define ITERATIONS 64
+#define ITERATIONS 10
 
 double* myNew, *myVal;
 int n;
@@ -65,7 +65,6 @@ void runParallel() {
     myNew = myVal;
     myVal = temp;
   for(int i=1; i<ITERATIONS; i++) {
-    std::cout << "I" << i << " " << std::flush;
     // hclib::start_tracing();
     hclib::reset_replay();
     hclib::finish([&]() {
@@ -100,5 +99,6 @@ int main (int argc, char ** argv) {
     for(int i=510; i<520; i++) {
       std::cout << myVal[i] << " ";
     }
+    std::cout << std::endl;
     hclib::finalize();
 }

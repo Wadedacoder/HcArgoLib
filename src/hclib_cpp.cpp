@@ -22,7 +22,6 @@
 
 void hclib::start_tracing()
 {
-	debugout << "Starting tracing" << std::endl;
 	hclib_set_tracing_enabled(true);
 	reset_all_worker_AC_counter();
 	reset_all_worker_SC_counter();
@@ -32,17 +31,11 @@ void hclib::stop_tracing()
 {
 	if(!hclib_replay_enabled())
 	{
-		// test_set_default_trace_lists();
-		// printf("INITIAL LISTS:\n");
-		// test_print_trace_list(default_trace_list, num_workers);
-
 		trace_list_aggregation_all();
 		trace_list_sorting_all();
 		create_array_to_store_stolen_task();
 		hclib_set_replay_enabled(true);
-		debugout << "Replay enabled" << std::endl;
 		hclib_set_tracing_enabled(false);
-		debugout << "Tracing disabled" << std::endl;
 	}
 }
 

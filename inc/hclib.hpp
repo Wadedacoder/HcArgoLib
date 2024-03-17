@@ -47,7 +47,6 @@ int current_worker();
 int num_workers();
 void start_tracing();
 void stop_tracing();
-void test_trace_aggregation_sort();
 void reset_replay();
 }
 
