@@ -33,6 +33,9 @@ void hclib::stop_tracing()
 	if(!hclib_replay_enabled())
 	{
 		// test_set_default_trace_lists();
+		// printf("INITIAL LISTS:\n");
+		// test_print_trace_list(default_trace_list, num_workers);
+
 		trace_list_aggregation_all();
 		trace_list_sorting_all();
 		create_array_to_store_stolen_task();

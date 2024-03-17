@@ -17,7 +17,7 @@
 //48 * 256 * 2048
 #define SIZE 25165824
 // #define SIZE 100
-#define ITERATIONS 10
+#define ITERATIONS 5
 
 double* myNew, *myVal;
 int n;
